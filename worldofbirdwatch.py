@@ -30,7 +30,7 @@ async def main():
     AVIARY = read_csv("./assets/aviary.csv")
     journal_icon = load_image("./assets/journal_icon.png", True)
     player_journal = Cursor(load_image("./assets/journal.png", True), DEFAULT_CONTROLS, 2, "bookie")
-    player_journal.pages.append(load_image("./assets/ctrl.png", False))
+    player_journal.page_image.append(load_image("./assets/ctrl.png", False))
     start_journal_images(player_journal)
 
     player_cursor = Cursor(load_image("./assets/cursor_binos.png", True), DEFAULT_CONTROLS, 10, "tester")
@@ -57,6 +57,13 @@ async def main():
             player_journal.book_check(events)
         
         canvas.blit(journal_icon, (MAX_WINDOW[0]-250, MAX_WINDOW[1]-250))
+        
+        ##placehodler printing text box example
+        my_font = pygame.font.SysFont('Arial', 99)
+        text_box = my_font.render("'J'", True, (0, 255, 170))
+        menu_rectangle = Widget(text_box, (MAX_WINDOW[0]/2+450), (MAX_WINDOW[1]/2)+50)
+        menu_rectangle.draw(canvas)
+        ##
         resolution = pygame.transform.scale(canvas, (window_w, window_h))
         root.blit(resolution, (0,0))
         pygame.display.flip()
@@ -84,7 +91,8 @@ class Cursor:
         self.rect = self.image.get_rect(topleft=(self.x, self.y))
         self.speed = speed
         self.open = False
-        self.pages =[]
+        self.page_image =[]
+        self.active_bird = "eagle"
         self.kup = arr_controls[0]
         self.kdown = arr_controls[1]
         self.kleft = arr_controls[2]
@@ -155,18 +163,16 @@ class Widget:
 
 
 ### functions
-def collision(canvas, mybox : list[Cursor], single_target_rect):
+def collision(mybox : list[Cursor], single_target_rect):
     #checks if you hit specific thing, T/F
     if mybox.rect.colliderect(single_target_rect):
-        pygame.draw.rect(canvas,(255,0,0), single_target_rect)
         return True
     return False
 
-def collision_bus(root, mybox : list[Cursor], list_of_rects):
+def collision_bus(mybox : list[Cursor], list_of_rects):
     #checks if you hit something in list, returns what you hit
     for monster in list_of_rects:
         if mybox.rect.colliderect(monster.rect):
-            pygame.draw.rect(root,(255,0,0), monster.rect)
             return True
     return False
 
@@ -204,11 +210,11 @@ def start_journal_images(journal : Cursor):
     global AVIARY
     keys = list(AVIARY.keys())
     for key in keys:
-        journal.pages.append(load_image(AVIARY[key]["image"], True))
+        journal.page_image.append(load_image(AVIARY[key]["image"], True))
 
 ### scenes
 def journal(canvas, journal : Cursor, events):
-
+    global AVIARY
     for event in events:
         if event.type == pygame.KEYDOWN: 
             if event.key == pygame.K_j:
@@ -220,39 +226,46 @@ def journal(canvas, journal : Cursor, events):
     journal.bind_book()
     journal.move()
     journal.draw(canvas)
-    canvas.blit(journal.pages[3], (journal.rect.x+45, journal.rect.y+45)) ##bird image
-    canvas.blit(journal.pages[0], ((journal.rect.x + 300), journal.rect.y+50)) ##Bird Image
-    canvas.blit(journal.pages[2], ((journal.rect.x + 345), journal.rect.y +145)) ##Bird Image
+    canvas.blit(journal.page_image[3], (journal.rect.x+45, journal.rect.y+45)) ##bird image
+    canvas.blit(journal.page_image[0], ((journal.rect.x + 300), journal.rect.y+50)) ##Bird Image
+    canvas.blit(journal.page_image[2], ((journal.rect.x + 345), journal.rect.y +145)) ##Bird Image
     ##idea is loop through pages and display the bird with all the info
     return canvas
 
-def overworld(journal, cursor : Cursor, events):
+def overworld(journal : Cursor, cursor : Cursor, events):
     canvas = pygame.Surface(MAX_WINDOW)
     global gamestate
+    global AVIARY
 
     #sound_fx = pygame.mixer.Sound("./assets/bird.ogg")
     #sound_fx.play()
-
-    my_font = pygame.font.SysFont('Arial', 36)
-    text_box = my_font.render("Hello World", True, (0, 0, 0))
-    menu_rectangle = Widget(text_box, (MAX_WINDOW[0]/2), (MAX_WINDOW[1]/2) )
     
     background = load_image("./assets/background1.png", False)
     #background_layer = load_image("./assets/background2.png", True)
-    
-    test_tuple = (300, 300, 300, 300)
-    test_tuple2 = (42, 42, 42, 42)
-    ###generally build a list[] then cycle all the objects
-    
+
+    ###random bird will come in here, attached to Class Cursor
+    #apex = rng(Bird)
+    small_bird = pygame.transform.scale((load_image(AVIARY["eagle"]["image"], True)), (35, 35))
+    small_bird = Widget(small_bird, 420, 240)
+    small_bird2 = pygame.transform.scale((load_image(AVIARY["mallard"]["image"], True)), (35, 35))
+    small_bird2 = Widget(small_bird2, 666, 666)
+
+    bird_bus = []
+    bird_bus.append(small_bird)
+    bird_bus.append(small_bird2)
+    ###generally build a list[] then cycle all the objects will revisit to loop later
+    ###need to track bird name being shot
     canvas.blit(background, (0,0))
-    collision(canvas, cursor, pygame.draw.rect(canvas, (255,180,180), test_tuple))
-    collision(canvas, cursor, pygame.draw.rect(canvas, (255,180,180), test_tuple2))
-    if cursor.click(events) and collision(canvas, cursor, pygame.draw.rect(canvas, (255,180,180), test_tuple)):
+    canvas.blit(small_bird.image, (small_bird.rect.x, small_bird.rect.y))
+    canvas.blit(small_bird2.image, (small_bird2.rect.x, small_bird2.rect.y))
+    if cursor.click(events) and collision(cursor, small_bird.rect):
         gamestate = "ZOOM"
-    elif cursor.click(events) and collision(canvas, cursor, pygame.draw.rect(canvas, (255,180,180), test_tuple2)):
+        journal.active_bird = "eagle"
+    elif cursor.click(events) and collision(cursor, small_bird2.rect):
         gamestate = "ZOOM"
-    canvas.blit(text_box, (0, 0)) 
-    menu_rectangle.draw(canvas)
+        journal.active_bird = "mallard"
+     
+    
         ###various examples of printing rectangles
         ###collision just checks if two rectangles overlap, rectangles can be square images
 
@@ -263,8 +276,11 @@ def overworld(journal, cursor : Cursor, events):
 
 def zoom_zone(journal : Cursor, events):
     global gamestate
+    global AVIARY
     canvas = pygame.Surface(MAX_WINDOW)
     canvas.fill((255,180,180))    
+    
+    canvas.blit(load_image(AVIARY[journal.active_bird]["image"], True), (MAX_WINDOW[0]/2, MAX_WINDOW[1]/2-100))
     canvas.blit(load_image("./assets/zoom_overlay.png", True), (0,0))
 
     if journal.click(events) == True:
