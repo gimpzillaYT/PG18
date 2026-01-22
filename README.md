@@ -10,5 +10,10 @@ essentially its a list of bird stats Comma Seperated Values CSVs. all birds in g
 3) more fields can be added, or entirely new CSVs can be made to hold additional stat blocks, talk to coders for additional implementations
 4) here is a break down of what each value represents between commas:
 
-   name, previosuly seen (T/F) always starts 0, img_path, habitat (Ocean wetlands forest or desert), rarity C U or R, wingspan in inches
+   name, previosuly seen (T/F) always starts 0, img_path, habitat (Ocean wetlands forest or desert), rarity C U or R, wingspan in inches, fun fact ~20 characters max
+
+   spawning and behavior are based on habitat and rarity.
+   "ocean" flys in background
+   "forest" and "grasslands" circle on the edge
+   "wetlands" swims in lake
                    
