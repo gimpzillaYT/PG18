@@ -1,3 +1,8 @@
-sandhill crane,0,./assets/crane.png,wetlands,U,42
-eagle,0,./assets/eagle.png,forest,R,84
-mallard,0,./assets/duck.png,wetlands,C,18
+sandhill crane	0	./assets/crane.png	wetlands	U	42	migrate 4000mi
+eagle	0	./assets/eagle.png	ocean	R	84	45mph topspeed
+mallard	0	./assets/duck.png	wetlands	C	18	classic quack
+woodpecker	0	./assets/woodpecker.png	forest	U	9	found globally
+canary	0	./assets/canary.png	grasslands	C	6	beautiful songs
+barnswallow	0	./assets/barnswallow.png	grasslands	C	10	metalic blue
+pine grosbeak	0	./assets/pinegrosbeak.png	forest	C	9	loves crabapples
+mockingbird	0	./assets/mockingbird.png	grasslands	C	14	territorial
