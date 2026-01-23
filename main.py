@@ -1,4 +1,8 @@
 import pygame, sys, csv, asyncio
+#import js, json
+#js imports only work in html after pygbag.. comment out to run local
+##comment sections at lines 2, 45, ~450
+##online pulls from localstorage() a dict{}, then fills book with past achievements
 from random import randint
 from pygame.locals import *
 
@@ -11,34 +15,45 @@ MAX_WINDOW = (1280, 720) #render everything to this, scale up to different resol
 gamestate = "OVERWORLD"
 
 ### READ ME ###
-### Birdwatch: build 0.0.2 developer: gimpzillayt; art: pontax; QA/testing: meticulac & newguy
+### Birdwatch: build 0.1.22 developer: gimpzillayt; art: pontax; QA/testing: meticulac & newguy
 ###
 ### please keep funcitons and classes alphabetized:
 ### the journal knows all.. if youre looking for a variable its probably attached to journal
 ### Cursor/journal acts kinda like game_state tracker and im too deep to unravel it all
 
-### in progress: ecosystem manager!!, animatied sprites
-### low priority: overlapped sprites(known bug), edge of map + zoom, window scaling, audio crashes 
+### in progress: mouse_inputs high on play testers minds!!
+### low priority: edge of map + zoom, page0 text
+### low prio: animatied sprites, window_scaling, bird and nature sounds
 
 ### main
 async def main():
     pygame.init()
     pygame.mixer.init()
     root = pygame.display.set_mode(MAX_WINDOW, pygame.RESIZABLE)
+    pygame.mixer.music.load("./assets/dsiraqo.wav") 
+    #load music early, play music last for download time
     window_w, window_h = 1280, 720
     clock = pygame.time.Clock()
     
     global AVIARY
     global gamestate
-
-    pygame.mixer.music.load("./assets/dsiraqo.wav")
-    pygame.mixer.music.play(-1)
-
     AVIARY = read_csv("./assets/aviary.csv")
+
+
     player_journal = Cursor(load_image("./assets/notebook.png", True), DEFAULT_CONTROLS, 100, "bookie", 40, MAX_WINDOW[1]-100)
     start_journal_pages(player_journal)
+    player_journal.start_start_overworld(rng(4))
 
     player_cursor = Cursor(load_image("./assets/cursor_binos.png", True), DEFAULT_CONTROLS, 15, "tester", rng(1000), rng(700))
+
+    ##online use only, comment out if local
+    #achievements = online_load_game()
+    #for key in achievements:
+    #    player_journal.checklist[key] = True
+    ########
+
+    
+    pygame.mixer.music.play(-1)
     while True:
         events = pygame.event.get()
         for event in events:
@@ -67,7 +82,6 @@ async def main():
         resolution = pygame.transform.scale(canvas, (window_w, window_h))
         root.blit(resolution, (0,0))
         pygame.display.flip()
-        ###pygame.display.flip() or .update() : basically same thing
         clock.tick(60)
         await asyncio.sleep(0)
 
@@ -76,19 +90,48 @@ async def main():
 
 ### classes
 class Bird:
-    def __init__ (self, name, image_file, x, y):
+    def __init__ (self, name, image_file, x, y, speed):
         global AVIARY
+        
         self.image = image_file
         self.name = name
         self.habitat = AVIARY[name]["zone"]
         self.x = x
         self.y = y
+        self.speed = self.set_speed()
         self.rect = self.image.get_rect(topleft=(self.x, self.y))
-        ### maybe build ecosystem here, Bird is used in overworld, 
-        ###ecosystem() handles overworld spawn, returns(x,y)
-        ###call ecosystem on spawn call Bird to move dependant on
-        ### "zone" variable in Aviary[name]["zone"] == "ocean"
+        ### movement will attach here. but list[] of Bird store in journal
+        ### move object here and keep cords stationary through book
         
+        
+    def move(self): 
+        rng_god = rng(100)
+        rng_helper = rng(6)+1
+        if self.habitat == "ocean":    
+            self.rect.x -= self.speed  ##right to left
+            if self.rect.x < -80:
+                self.speed = rng_god%10+1
+                self.rect.x = MAX_WINDOW[0]
+                self.rect.y = rng_god*rng_helper
+            
+        if self.habitat == "wetlands":    
+            self.rect.x -= self.speed  ##right to left  
+            if self.rect.x < 400:
+                self.speed = rng_god%3+1
+                self.rect.x = MAX_WINDOW[0]
+                self.rect.y = 666          
+
+    def set_speed(self):
+        rng_god = rng(100)
+        if self.habitat == "ocean":
+            return rng_god%10+1
+        if self.habitat == "wetlands":
+            return rng_god%2+1
+        if self.habitat == "grasslands":
+            return rng_god%4+1
+        if self.habitat == "forest":
+            return rng_god%4+1
+
 
 class Cursor:
     def __init__(self, image_file, arr_controls, speed, name, x, y):
@@ -148,13 +191,13 @@ class Cursor:
             #changes the spawn points in journal to randomize spawns
             x = rng(1200)
             y = rng(700)
-            print (x//4, y//40)
             self.habitat["wetlands"] = (x//4 + 600, y//4 + 600)
             self.habitat["ocean"] = (x//6 + 500, y//3 + 200)
             self.habitat["grasslands"] = (x//5+25, y//6+400)
             self.habitat["forest"] = (x//4+800, y//4+400)
             return 
 
+    ##wasd ctrl with boundaries
     def move(self):
         keys = pygame.key.get_pressed()
 
@@ -190,6 +233,58 @@ class Cursor:
             animal_list.append(self.random_bird())
         self.active_flock = animal_list
         return animal_list
+        
+    def start_start_overworld(self, n):
+        ##randoms spawn points and rarity of birds
+        global AVIARY
+        self.active_flock = []
+        for _ in range(n):
+            rng_god = rng(100)
+            rng_helper = rng(5)+1
+            rarity_final = "c"
+            zone_final = "ocean"
+            x_final = rng_god*rng_helper*2
+            y_final = 360
+            if rng_god%4 == 0:
+                zone_final = "ocean"
+                x_final = MAX_WINDOW[1]
+                y_final -= rng_god*2
+            elif rng_god%4 == 1:
+                zone_final = "wetlands"
+                y_final += rng_god*3
+            elif rng_god%4 == 2: 
+                zone_final = "grasslands"
+                x_final = x_final/2
+            elif rng_god%4 == 3: 
+                zone_final = "forest"
+            
+            if rng_god%rng_helper == 0 or rng_god%rng_helper == 1 or rng_god%rng_helper == 2: 
+                rarity_final = "c"
+                y_final += rng_god    
+            elif rng_god%rng_helper == 3 or rng_god%rng_helper == 4: #"uncommon"
+                rarity_final = "u"
+            elif rng_god%rng_helper >= 5: #"rare"
+                rarity_final = "r" 
+                y_final += rng_helper*rng_helper
+
+            final_contestants = []
+            nerd = 0
+            for name, stats in AVIARY.items():    
+                if stats["zone"] == zone_final and stats["rarity"] == rarity_final:
+                    final_contestants.append(name)
+                    nerd += 1
+            if nerd == 0:
+                for name, stats in AVIARY.items():
+                    if stats["zone"] == zone_final:
+                        final_contestants.append(name)
+                
+            
+            orc_ruler_master_of_doom = final_contestants[rng(len(final_contestants)-1)]
+            small_birdy = pygame.transform.scale((load_image(AVIARY[orc_ruler_master_of_doom]["image"], True)), (100, 100))
+            ##makebird and append to flock
+            self.active_flock.append(Bird(orc_ruler_master_of_doom, small_birdy, x_final, y_final, rng_god%10+1))
+        
+        return
 
 class Widget:
     def __init__(self, image_file, x, y):
@@ -226,6 +321,14 @@ def load_image(filename, alpha_bool):
     ### loads and stores images to prevent lag/repeated loads
     return IMG_MANAGER[filename]
 
+def online_load_game():
+    saved_str = js.window.localStorage.getItem("my_personal_bird_dict")
+    
+    if saved_str is None:
+        # First time playing! Create default data
+        return  {}
+    return json.loads(saved_str)
+
 def read_csv(filename):
     dictionary = {}
     for row in csv.reader(open(filename)):
@@ -255,6 +358,8 @@ def start_journal_pages(journal : Cursor):
         journal.list_birds.append(key)
     journal.list_birds.append(journal.list_birds[0])
 
+
+    #literally all the printing to journal pages
 def sustain_journal_pages(canvas, journal):
     ##can be massively optomized, but.. time
     my_font = pygame.font.SysFont('Arial', 30)
@@ -365,13 +470,12 @@ def journal(canvas, journal : Cursor, events):
         
         for event in events:
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_LEFT and journal.page != 0:
-                    journal.rect.x = 0
+                if event.key == pygame.K_LEFT and journal.page != 0:                    
                     journal.page -= 1
 
                 if event.key == pygame.K_RIGHT and journal.page < len(journal.list_birds)-1:
                     journal.page += 1
-                    ##append credits later insted of -1
+                    
                     
     journal.bind_book()
     journal.draw(canvas)
@@ -393,22 +497,9 @@ def overworld(journal : Cursor, cursor : Cursor, events):
 
     #spawn animals outside of this loop, so they can do something in here instead
     #attach to the holy journal
-    animal_house = []
+
     for animal in journal.active_flock:
-        if animal == "thank you":
-            small_bird = Bird("woodpecker", load_image("./assets/woodpecker.png", True), 20, 400)
-            animal_house.append(small_bird)
-            continue
-        small_scale = pygame.transform.scale((load_image(AVIARY[animal]["image"], True)), (100, 100))
-        small_bird = Bird(animal, small_scale, journal.habitat[AVIARY[animal]["zone"]][0],
-                          journal.habitat[AVIARY[animal]["zone"]][1]) #eco return(x,y) tuple
-        animal_house.append(small_bird)
-        
-    
-    ##check eco system before spawn
-
-
-    for animal in animal_house:
+        animal.move()
         canvas.blit(animal.image, (animal.rect.x, animal.rect.y))
         if cursor.click(events) and collision(cursor, animal.rect):
             gamestate = "ZOOM"
@@ -417,6 +508,11 @@ def overworld(journal : Cursor, cursor : Cursor, events):
             journal.zoom_cords.append((animal.rect.y-100))
             journal.checklist[animal.name] = True
             journal.active_bird = animal.name
+
+            ##online use only, comment out if local
+                #Saves progress to the browser immediately
+            #js.window.localStorage.setItem("my_personal_bird_dict", json.dumps(journal.checklist))
+            ########
 
     if journal.open == False: #cant move if journal open
         cursor.move()
@@ -436,7 +532,7 @@ def zoom_zone(journal : Cursor, events):
     if draw_x > 0: 
         draw_x = 0
         journal.zoom_cords[0]
-    if draw_x < MAX_WINDOW[0] - scaled_w: ##major bag alert
+    if draw_x < MAX_WINDOW[0] - scaled_w: 
         draw_x = MAX_WINDOW[0] - scaled_w
         journal.zoom_cords[0]
     if draw_y > 0:
@@ -462,8 +558,8 @@ def zoom_zone(journal : Cursor, events):
 
     if journal.click(events) == True:
         gamestate = "OVERWORLD"
-        journal.active_flock = journal.start_overworld(rng(5)+1)
-        journal.ecosystem_shuffle()
+        journal.start_start_overworld(rng(5)+1)
+        
         
 
     return canvas
