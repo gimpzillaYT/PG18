@@ -1,203 +1,75 @@
-import pygame, sys, csv, asyncio
-#import js, json
-#js imports only work in html after pygbag.. comment out to run local
-##comment sections at lines 2, 45, ~450
-##online pulls from localstorage() a dict{}, then fills book with past achievements
+import pygame, sys, csv
 from random import randint
 from pygame.locals import *
+pygame.init()
 
 
-### directories
+###### directories
 DEFAULT_CONTROLS = [K_UP, K_DOWN, K_LEFT, K_RIGHT, K_SPACE]
+DEFAULT_P2 = [K_w, K_s, K_a, K_d, K_TAB]
+MAX_WINDOW = (1280, 720) #images are blit onto a canvas, then blit to root
+window_w, window_h = 1280, 720
 IMG_MANAGER = {}
-AVIARY = {}
-MAX_WINDOW = (1280, 720) #render everything to this, scale up to different resolutions (1280, 720)
-gamestate = "OVERWORLD"
 
-### READ ME ###
-### Birdwatch: build 0.1.22 developer: gimpzillayt; art: pontax; QA/testing: meticulac & newguy
-###
-### please keep funcitons and classes alphabetized:
-### the journal knows all.. if youre looking for a variable its probably attached to journal
-### Cursor/journal acts kinda like game_state tracker and im too deep to unravel it all
 
-### in progress: mouse_inputs high on play testers minds!!
-### low priority: edge of map + zoom, page0 text
-### low prio: animatied sprites, window_scaling, bird and nature sounds
+### ITS DUCK HUNT! EXCEPT UNLIMITED PLAYERS ON ONE KEYBOARD! ###
 
-### main
-async def main():
-    pygame.init()
-    pygame.mixer.init()
+### Features im working on adding; user_input_controls, double_kill(), load screen 
+### Dream List; Gun Classes, Upgrade/Debuff Crosshairs, more art
+### doneDone; window_RESIZABLE, localized images, persistent high score
+### doneDone; reloading, audio, 
+
+##### main
+def main():
+    MY_ICON = pygame.image.load("./assets/myicon.png")
+    pygame.display.set_icon(MY_ICON)
+    pygame.display.set_caption("Ribeye of the Sky")
     root = pygame.display.set_mode(MAX_WINDOW, pygame.RESIZABLE)
-    pygame.mixer.music.load("./assets/dsiraqo.wav") 
-    #load music early, play music last for download time
-    window_w, window_h = 1280, 720
-    clock = pygame.time.Clock()
-    
-    global AVIARY
-    global gamestate
-    AVIARY = read_csv("./assets/aviary.csv")
 
-
-    player_journal = Cursor(load_image("./assets/notebook.png", True), DEFAULT_CONTROLS, 100, "bookie", 40, MAX_WINDOW[1]-100)
-    start_journal_pages(player_journal)
-    player_journal.start_start_overworld(rng(4))
-
-    player_cursor = Cursor(load_image("./assets/cursor_binos.png", True), DEFAULT_CONTROLS, 15, "tester", rng(1000), rng(700))
-
-    ##online use only, comment out if local
-    #achievements = online_load_game()
-    #for key in achievements:
-    #    player_journal.checklist[key] = True
-    ########
-
-    
-    pygame.mixer.music.play(-1)
-    while True:
-        events = pygame.event.get()
-        for event in events:
-            if event.type == QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == pygame.VIDEORESIZE:
-                window_w, window_h = event.w, event.h
-                root = pygame.display.set_mode((window_w, window_h), pygame.RESIZABLE)
-        
-        ###go to function: send back canvas. print canvas to root in main
-        if gamestate == "OVERWORLD":
-            canvas = overworld(player_journal, player_cursor, events)
-        elif gamestate == "ZOOM":
-            canvas = zoom_zone(player_journal, events)
-        
-        #journal is accessible in any gamestate
-        canvas =  journal(canvas, player_journal, events)
-        
-        
-        
-        ##placehodler printing text box example
-        #write_textbox("hello world", 650, 350).draw(canvas)
-        
-        ##
-        resolution = pygame.transform.scale(canvas, (window_w, window_h))
-        root.blit(resolution, (0,0))
-        pygame.display.flip()
-        clock.tick(60)
-        await asyncio.sleep(0)
-
+    main_menu(root, load_image("./assets/controls.png", True))
     return
 
 
-### classes
-class Bird:
-    def __init__ (self, name, image_file, x, y, speed):
-        global AVIARY
-        
-        self.image = image_file
+##### classes
+class Crosshair:
+    def __init__(self, image_file, x, y, speed, magsize, arr_controls, name):
+        global MAX_WINDOW
+        self.special = 0
+        self.reloadspeed = 120
+        self.reloadmag = False
         self.name = name
-        self.habitat = AVIARY[name]["zone"]
-        self.x = x
-        self.y = y
-        self.speed = self.set_speed()
-        self.rect = self.image.get_rect(topleft=(self.x, self.y))
-        ### movement will attach here. but list[] of Bird store in journal
-        ### move object here and keep cords stationary through book
-        
-        
-    def move(self): 
-        rng_god = rng(100)
-        rng_helper = rng(6)+1
-        if self.habitat == "ocean":    
-            self.rect.x -= self.speed  ##right to left
-            if self.rect.x < -80:
-                self.speed = rng_god%10+1
-                self.rect.x = MAX_WINDOW[0]
-                self.rect.y = rng_god*rng_helper
-            
-        if self.habitat == "wetlands":    
-            self.rect.x -= self.speed  ##right to left  
-            if self.rect.x < 400:
-                self.speed = rng_god%3+1
-                self.rect.x = MAX_WINDOW[0]
-                self.rect.y = 666          
-
-    def set_speed(self):
-        rng_god = rng(100)
-        if self.habitat == "ocean":
-            return rng_god%10+1
-        if self.habitat == "wetlands":
-            return rng_god%2+1
-        if self.habitat == "grasslands":
-            return rng_god%4+1
-        if self.habitat == "forest":
-            return rng_god%4+1
-
-
-class Cursor:
-    def __init__(self, image_file, arr_controls, speed, name, x, y):
-        self.name = name
-        self.image = image_file
-        self.x = x
-        self.y = y
-        self.rect = self.image.get_rect(topleft=(self.x, self.y))
+        self.image = image_file 
+        self.rect = self.image.get_rect(topleft=(x, y))
+        self.score = 0
         self.speed = speed
-        self.open = False
-        self.page = 0
-        self.list_birds = []
-        self.active_bird = self.random_bird()
-        self.active_flock = self.start_overworld(rng(5)+1)
-        self.zoom_cords = []
-        self.habitat = {"wetlands" : (666,666), "ocean" : (700,260), "forest" : (1000,555),
-                        "grasslands" : (45,555), "victory lane" : (-420,-69)} 
-        self.checklist = {}
-        self.win = False
+        self.img_ammo = load_image("./assets/ammo.png", True)
+        self.ammo = magsize
+        self.magsize = magsize
         self.kup = arr_controls[0]
         self.kdown = arr_controls[1]
         self.kleft = arr_controls[2]
         self.kright = arr_controls[3]
         self.kfire = arr_controls[4]
 
-    def bind_book(self):
-        x = (MAX_WINDOW[0]/2-520)
-        y = (MAX_WINDOW[1]/2)
-        if self.rect.x < 100:
-            self.rect.x = 170
-        if self.rect.x > x:
-            self.rect.x = x - 100
-        if self.rect.y < y:
-            self.rect.y = y
-        ##cant simulate the same nudge every time maybe manually animate it
-        ##felt good to have wobble in the book
-    
-    def book_check(self, events):
+    def draw(self, root):
+        root.blit(self.image, self.rect)
+        
+    def draw_ammo(self, root, x, y):
+        blank = self.magsize - self.ammo  
+        for bullet in range(self.ammo): 
+            root.blit(self.img_ammo, (x, y))
+            x += 40
+        for _ in range(blank):
+            x += 40
+        return x  
+
+    def fire(self, events): #returns T/F if they fired
         for event in events:
-            if event.type == KEYDOWN:
-                if event.key == pygame.K_j:
-                    self.open = True 
-    
-    def click(self, events): #returns T/F if they fired
-        for event in events:
-            if event.type == KEYDOWN:
-                if event.key == self.kfire or event.key == pygame.K_ESCAPE:
-                    return True                                 
-        return False 
+            if event.type == KEYDOWN and event.key == self.kfire:
+                print(self.rect)
+                return True                 
+        return False     
 
-
-    def draw(self, canvas):
-        canvas.blit(self.image, self.rect)
-   
-
-    def ecosystem_shuffle(self):
-            #changes the spawn points in journal to randomize spawns
-            x = rng(1200)
-            y = rng(700)
-            self.habitat["wetlands"] = (x//4 + 600, y//4 + 600)
-            self.habitat["ocean"] = (x//6 + 500, y//3 + 200)
-            self.habitat["grasslands"] = (x//5+25, y//6+400)
-            self.habitat["forest"] = (x//4+800, y//4+400)
-            return 
-
-    ##wasd ctrl with boundaries
     def move(self):
         keys = pygame.key.get_pressed()
 
@@ -212,105 +84,129 @@ class Cursor:
         
         if self.rect.y < 0:#boundry edge
             self.rect.y = 0
-        if self.rect.y > MAX_WINDOW[1]-100:
-            self.rect.y = MAX_WINDOW[1]-100
+        if self.rect.y > MAX_WINDOW[1]:
+            self.rect.y = MAX_WINDOW[1]
         if self.rect.x < 0:
             self.rect.x = 0
-        if self.rect.x > MAX_WINDOW[0]-100:
-            self.rect.x = MAX_WINDOW[0]-100
-
-    def random_bird(self):
-        global AVIARY
-        arr = list(AVIARY.keys())
-        n = rng(len(arr))-1
-        self.active_bird = arr[n]
-        return arr[n]
-
-    def start_overworld(self, n):
-        global AVIARY
-        animal_list = []
-        for _ in range(n): 
-            animal_list.append(self.random_bird())
-        self.active_flock = animal_list
-        return animal_list
+        if self.rect.x > MAX_WINDOW[0]-40:
+            self.rect.x = MAX_WINDOW[0]-40
         
-    def start_start_overworld(self, n):
-        ##randoms spawn points and rarity of birds
-        global AVIARY
-        self.active_flock = []
-        for _ in range(n):
-            rng_god = rng(100)
-            rng_helper = rng(5)+1
-            rarity_final = "c"
-            zone_final = "ocean"
-            x_final = rng_god*rng_helper*2
-            y_final = 360
-            if rng_god%4 == 0:
-                zone_final = "ocean"
-                x_final = MAX_WINDOW[1]
-                y_final -= rng_god*2
-            elif rng_god%4 == 1:
-                zone_final = "wetlands"
-                y_final += rng_god*3
-            elif rng_god%4 == 2: 
-                zone_final = "grasslands"
-                x_final = x_final/2
-            elif rng_god%4 == 3: 
-                zone_final = "forest"
-            
-            if rng_god%rng_helper == 0 or rng_god%rng_helper == 1 or rng_god%rng_helper == 2: 
-                rarity_final = "c"
-                y_final += rng_god    
-            elif rng_god%rng_helper == 3 or rng_god%rng_helper == 4: #"uncommon"
-                rarity_final = "u"
-            elif rng_god%rng_helper >= 5: #"rare"
-                rarity_final = "r" 
-                y_final += rng_helper*rng_helper
 
-            final_contestants = []
-            nerd = 0
-            for name, stats in AVIARY.items():    
-                if stats["zone"] == zone_final and stats["rarity"] == rarity_final:
-                    final_contestants.append(name)
-                    nerd += 1
-            if nerd == 0:
-                for name, stats in AVIARY.items():
-                    if stats["zone"] == zone_final:
-                        final_contestants.append(name)
-                
-            
-            orc_ruler_master_of_doom = final_contestants[rng(len(final_contestants)-1)]
-            small_birdy = pygame.transform.scale((load_image(AVIARY[orc_ruler_master_of_doom]["image"], True)), (100, 100))
-            ##makebird and append to flock
-            self.active_flock.append(Bird(orc_ruler_master_of_doom, small_birdy, x_final, y_final, rng_god%10+1))
+
+class Monster: 
+    def __init__(self, img_file):
+        self.image = img_file
+        self.bool_direction = rng(1)
+        self.x = MAX_WINDOW[0]
+        self.y = rng(MAX_WINDOW[1])
+        self.speed = randint(1,6)
+        self.rect = self.image.get_rect(topleft=(self.x, self.y))
+        if self.bool_direction < 1: #right-to-left
+            self.x = 0
+            self.image = pygame.transform.flip(self.image, True, False)
         
-        return
 
-class Widget:
-    def __init__(self, image_file, x, y):
-        self.image = image_file
+    def death(self):
+        score = self.speed
+        self.x = MAX_WINDOW[0]
+        self.y = rng(MAX_WINDOW[1])
+        self.speed = randint(1,5)
+        self.rect = self.image.get_rect(topleft=(self.x, self.y))
+        return score
+
+    def draw(self, root):
+        root.blit(self.image, self.rect)    
+
+    def move(self): 
+        if self.bool_direction > 0: 
+            self.rect.x -= self.speed
+            if self.rect.x < -80:
+                self.speed = randint(1,5)
+                self.rect.x = MAX_WINDOW[0]
+                self.rect.y = rng(MAX_WINDOW[1])
+        else:
+            self.rect.x += self.speed
+            if self.rect.x > MAX_WINDOW[0]:
+                self.speed = randint(1,5)
+                self.rect.x = -80
+                self.rect.y = rng(MAX_WINDOW[1])
+            
+    
+
+class Window:
+    def __init__(self, img_file, x, y): #builds rect for collide with any image
+        self.frames = 0
         self.x = x
         self.y = y
-        self.rect = self.image.get_rect(topleft=(self.x, self.y))
-        ###takes any image and makesa rectangle
-    def draw(self, canvas):
-        canvas.blit(self.image, self.rect)
+        self.image = img_file
+        self.rect = self.image.get_rect(topleft=(x,y))
+        self.score = 0
 
+    
+    def death(self):
+        return -1
 
+    def draw(self, root):
+        root.blit(self.image, self.rect)
 
-### functions
-def collision(mybox : list[Cursor], single_target_rect):
-    #checks if you hit specific thing, T/F
-    if mybox.rect.colliderect(single_target_rect):
-        return True
-    return False
+###### functions
 
-def collision_bus(mybox : list[Cursor], list_of_rects):
-    #checks if you hit something in list, returns what you hit
-    for monster in list_of_rects:
+def bus_monster(root, arr : list[Monster]):
+    for monster in arr:
+        monster.move()
+        monster.draw(root)
+
+def bus_player(root, arr : list[Crosshair]):
+    x = 0
+    for player in arr:
+        player.move()
+        player.draw(root)
+        x = player.draw_ammo(root, x, 50)
+        x += 120
+
+#want to add collision detect for single objects, not just lists
+def collision_bus(root, mybox : list[Crosshair], boxtarget : list[Monster], bool_blood):
+    #checks if you hit something, if you did returns a number, if not 0
+    gun_sfx = pygame.mixer.Sound("./assets/doublekill.mp3")
+    score = 0
+    double_kill = 0
+    for monster in boxtarget:
         if mybox.rect.colliderect(monster.rect):
-            return True
-    return False
+            double_kill += 1
+            if bool_blood == True:
+                pygame.draw.rect(root,(255,0,0), monster.rect)
+            score += monster.death()
+    if double_kill > 1:
+        score = score*double_kill
+        gun_sfx.play()
+    return score*10
+
+def highscore_did_i_break_it(time_var, name): #add player input dont need name
+    highscores = read_csv("./assets/score.csv")
+    if time_var < highscores[5]["time"]:
+        score_maker = name #playerinput()
+        for score in highscores.values(): #.values() looks in the dict, just dict looks at only keys
+            if score["time"] > time_var:
+                i = score["time"]
+                n = score["name"]
+                score["time"] = time_var
+                score["name"] = score_maker
+                time_var = i
+                score_maker = n
+        rewrite_csv("./assets/score.csv", highscores) 
+
+def highscore_draw(root, filename, x, y):
+    highscores = read_csv(filename)
+    my_font = pygame.font.SysFont('Arial', 22)
+    header = my_font.render("Highscores:", True, (255, 255, 255))
+    root.blit(header, (x, y))
+    
+    for i in range(len(highscores)):
+        y += 30
+        text_content = f"{highscores[i+1]['name']} : {highscores[i+1]['time']} seconds"
+        text_box = my_font.render(text_content, True, (255,255,255))
+        root.blit(text_box, (x, y))
+    return
 
 def load_image(filename, alpha_bool):
     if filename not in IMG_MANAGER:
@@ -318,252 +214,196 @@ def load_image(filename, alpha_bool):
             IMG_MANAGER[filename] = pygame.image.load(filename).convert_alpha()
         else:
             IMG_MANAGER[filename] = pygame.image.load(filename).convert()
-    ### loads and stores images to prevent lag/repeated loads
+
     return IMG_MANAGER[filename]
 
-def online_load_game():
-    saved_str = js.window.localStorage.getItem("my_personal_bird_dict")
+def load_monster(n, img_file): #returns filled list with n monsters
+    monster_pool = []
+    for _ in range(n):
+        frankenstien = Monster(img_file)
+        monster_pool.append(frankenstien)
+    return monster_pool
     
-    if saved_str is None:
-        # First time playing! Create default data
-        return  {}
-    return json.loads(saved_str)
+def options(events, root):
+    for event in events:
+        if event.type == QUIT:
+            pygame.quit()
+            sys.exit()
+        if event.type == pygame.VIDEORESIZE:
+            window_w, window_h = event.w, event.h
+            root = pygame.display.set_mode((window_w, window_h), pygame.RESIZABLE)
+    return root
 
 def read_csv(filename):
     dictionary = {}
     for row in csv.reader(open(filename)):
         ## kinda makes a temp array with a cubby for every item() seperated by commas (csv)
-        ## then uses that temp array to initialize a dict {cool : stuff : dude} and it 
-        ## turns the 'stuff' into a list[] so i can pull stuff by saying call["cool"]["stuff"] == dude
-        name = row[0].lower()
-        found = bool(row[1])
-        image = row[2].lower()
-        zone = row[3].lower()
-        rarity = row[4].lower()
-        wingspan = int(row[5])
-        fact = row[6].lower()
-
-        dictionary[name] = {"found" : found, "image" : image, "zone" : zone,
-                             "rarity" : rarity, "wingspan" : wingspan, "fact" : fact}
+        ## then uses that temp array to initialize a dict {cool : stuff} and it 
+        ## turns the 'stuff' into a list[] so i can pull stuff by saying call[cool]["stuff"]
+        key = int(row[0])
+        title = row[1]
+        duration = int(row[2])
+        dictionary[key] = {"name" : title, "time" : duration}
+    ## returns a mutable dictionary {n : ["name", "time"]}
     return dictionary
-    ## since dict variables are mutable i can return a full dict and work it over there
+
+def rewrite_csv(file_scores, update):
+    with open(file_scores, 'w', newline='') as file:
+        to_text = csv.writer(file)
+        for key, data in update.items():
+            to_text.writerow([key, data["name"], data["time"]])
+    return 0
 
 def rng(n):
-    return randint(0,n)
+    return randint(0, n)
 
-def start_journal_pages(journal : Cursor):
-    global AVIARY
-    keys = list(AVIARY.keys())
-    for key in keys:
-        journal.list_birds.append(key)
-    journal.list_birds.append(journal.list_birds[0])
+def scale_up(root): #TBD
+    return
 
+#### gameplay
+def main_menu(root, advertisement):
+    pygame.mixer.music.load("./assets/dsiraqo.wav")
+    pygame.mixer.music.play(-1)
+    gun_sfx = pygame.mixer.Sound("./assets/shotgun.mp3")
+    my_font = pygame.font.SysFont('Arial', 12)
 
-    #literally all the printing to journal pages
-def sustain_journal_pages(canvas, journal):
-    ##can be massively optomized, but.. time
-    my_font = pygame.font.SysFont('Arial', 30)
-    small_font = pygame.font.SysFont('Arial', 22)
-    questionmark = pygame.font.SysFont('Arial', 77)
+    clock = pygame.time.Clock()
+    canvas = pygame.Surface(MAX_WINDOW)
+    print(read_csv("./assets/score.csv")) ##
+    global window_h
+    global window_w
     
-    if journal.win == False:   
-        if len(journal.list_birds)-1 == len(list(journal.checklist.keys())):
-            AVIARY["thank you"] = {"found" : 0, "image" : "./assets/victory.png", "zone" : "victory lane",
-                             "rarity" :  "R", "wingspan" : 42, "fact" : "GimpzillaYT&Pontax"}
-            journal.checklist["thank you"] = True
-            journal.list_birds.append("thank you")
-            journal.win = True
-        
-
-    if journal.page == 0:
-        text_box = my_font.render(f"[J] ournal :", True, (0,0,0))
-        canvas.blit(text_box, (journal.rect.x+115,journal.rect.y+55))
-
-        text_box = my_font.render(f"<-", True, (0,0,0))
-        canvas.blit(text_box, (journal.rect.x+80,journal.rect.y+155))
-
-        text_box = my_font.render(f"->", True, (0,0,0))
-        canvas.blit(text_box, (journal.rect.x+560,journal.rect.y+155))
-        
-
-
-        image_bd = load_image("./assets/ctrl.png", True)
-        image_mugshot = pygame.transform.scale(image_bd, (200, 200))
-        canvas.blit(image_mugshot, (journal.rect.x+100, journal.rect.y+100))
-
-    if journal.page > 0:
-        if journal.list_birds[journal.page] not in journal.checklist:
-            text_box = my_font.render(f"[J] ournal :", True, (0,0,0))
-            canvas.blit(text_box, (journal.rect.x+115,journal.rect.y+55))
-
-            text_box = my_font.render(f"<-", True, (0,0,0))
-            canvas.blit(text_box, (journal.rect.x+80,journal.rect.y+155))
-
-            text_box = my_font.render(f"->", True, (0,0,0))
-            canvas.blit(text_box, (journal.rect.x+560,journal.rect.y+155))
-
-            text_box = questionmark.render(f"?", True, (0,0,0))
-            canvas.blit(text_box, (journal.rect.x+150, journal.rect.y+150))
-
-            text_box = my_font.render(f"{journal.list_birds[journal.page]}", True, (0,0,0))
-            canvas.blit(text_box, (journal.rect.x+300,journal.rect.y+55))
-
-            text_box = my_font.render(f"habitat: {AVIARY[journal.list_birds[journal.page]]['zone']}", True, (0,0,0))
-            canvas.blit(text_box, (journal.rect.x+325,journal.rect.y+125))
-        
-            text_box = my_font.render(f"wingspan: {AVIARY[journal.list_birds[journal.page]]['wingspan']} in.", True, (0,0,0))
-            canvas.blit(text_box, (journal.rect.x+325,journal.rect.y+165))
-
-            return canvas
-
-        text_box = my_font.render(f"[J] ournal :", True, (0,0,0))
-        canvas.blit(text_box, (journal.rect.x+115,journal.rect.y+55))
-
-        text_box = my_font.render(f"<-", True, (0,0,0))
-        canvas.blit(text_box, (journal.rect.x+80,journal.rect.y+155))
-
-        text_box = my_font.render(f"->", True, (0,0,0))
-        canvas.blit(text_box, (journal.rect.x+560,journal.rect.y+155))
-
-        text_box = my_font.render(f"{journal.list_birds[journal.page]}", True, (0,0,0))
-        canvas.blit(text_box, (journal.rect.x+300,journal.rect.y+55)) ##name##need css style tips
+    monster_pool = load_monster(rng(5), load_image("./assets/bird.png", True))
+    background = load_image("./assets/background1.png", False)
+    background_layer = load_image("./assets/background2.png", True)
+    player = Crosshair(load_image("./assets/crosshair1.png", True),
+                        rng(700), rng(600), 7, -1, DEFAULT_CONTROLS, "Player 1")
     
-        image_bd = load_image(AVIARY[journal.list_birds[journal.page]]["image"], True)
-        image_mugshot = pygame.transform.scale(image_bd, (200, 200))
-        canvas.blit(image_mugshot, (journal.rect.x+100, journal.rect.y+75))##image
-
-        text_box = my_font.render(f"habitat: {AVIARY[journal.list_birds[journal.page]]['zone']}", True, (0,0,0))
-        canvas.blit(text_box, (journal.rect.x+325,journal.rect.y+125))
-        
-        text_box = my_font.render(f"wingspan: {AVIARY[journal.list_birds[journal.page]]['wingspan']} in.", True, (0,0,0))
-        canvas.blit(text_box, (journal.rect.x+325,journal.rect.y+165))
-
-        text_box = small_font.render(f"pg. {journal.page}", True, (0,0,0))
-        canvas.blit(text_box, (journal.rect.x+515,journal.rect.y+275))
-
-        text_box = my_font.render(f"fact: {AVIARY[journal.list_birds[journal.page]]['fact']}", True, (0,0,0))
-        canvas.blit(text_box, (journal.rect.x+115,journal.rect.y+265))
-        
-        
-    ##idea is loop through pages and display the bird with all the info
-    return canvas
-
-def write_textbox(string, x, y):
-    my_font = pygame.font.SysFont('Arial', 99)
-    text_box = my_font.render(f"{string}", True, (0, 255, 170))
-    return Widget(text_box, x, y)
-
-### scenes
-def journal(canvas, journal : Cursor, events):
-    global AVIARY
-    for event in events:
-        if event.type == pygame.KEYDOWN: 
-            if event.key == pygame.K_j or event.key == pygame.K_ESCAPE:
-                if journal.open == False:
-                    journal.open = True
-                    journal.rect.y = MAX_WINDOW[1]/2
-                elif journal.open == True:   
-                    journal.open = False
-                    journal.rect.y = MAX_WINDOW[1]-100
-
-    if journal.open == True:
-        
+    
+    menu_img = (load_image("./assets/menu.png", True))
+    menu_rect = Window(menu_img, MAX_WINDOW[0]/2 - (menu_img.get_width())/2, (menu_img.get_height())+100)
+    menu2_rect = Window(advertisement, (MAX_WINDOW[0]/2 - (advertisement.get_width())/2), (MAX_WINDOW[1]-advertisement.get_height()*2.5))
+    menu_pool = [menu_rect]
+    build_info = my_font.render("Build 0.0.1: gimpzillaYT: music by DukeSiraqo.", True, (255, 255, 255))
+    
+    
+    while True:
+        canvas.blit(background, (0,0))
+        canvas.blit(build_info, (0, 0))
+        bus_monster(canvas, monster_pool)
+        canvas.blit(background_layer, (0,0))
+        menu2_rect.draw(canvas)
+        for menu in menu_pool:
+            menu.draw(canvas) ##add animation loop to Window Class
+        highscore_draw(canvas, "./assets/score.csv", (MAX_WINDOW[0]/2-100), 20)
+        player.move()
+        events = pygame.event.get()
+        ###options
         for event in events:
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_LEFT and journal.page != 0:                    
-                    journal.page -= 1
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.VIDEORESIZE:
+                window_w, window_h = event.w, event.h
+                root = pygame.display.set_mode((window_w, window_h), pygame.RESIZABLE)
+        ###more optimal to keep here, only update root if window changes
+        if player.fire(events) == True:
+            gun_sfx.play()
+            if collision_bus(canvas, player, menu_pool, False) < 0:
+                new_game(root, DEFAULT_CONTROLS, DEFAULT_P2)
+            collision_bus(canvas, player, monster_pool, True)
+        player.draw(canvas)
 
-                if event.key == pygame.K_RIGHT and journal.page < len(journal.list_birds)-1:
-                    journal.page += 1
-                    
-                    
-    journal.bind_book()
-    journal.draw(canvas)
-    return sustain_journal_pages(canvas, journal)
+        resolution = pygame.transform.scale(canvas, (window_w, window_h))
+        root.blit(resolution, (0,0))
+        pygame.display.flip()
+        clock.tick(60)
 
-
-def overworld(journal : Cursor, cursor : Cursor, events):
+def new_game(root, p1_controls, p2_controls):
+    time_var: int = 0
+    clock = pygame.time.Clock()
     canvas = pygame.Surface(MAX_WINDOW)
-    global gamestate
-    global AVIARY
-    
+    gun_sfx = pygame.mixer.Sound("./assets/shotgun.mp3")
+    global window_w
+    global window_h
 
-    #sound_fx = pygame.mixer.Sound("./assets/bird.ogg")
-    #sound_fx.play()
-    
+    my_font = pygame.font.SysFont('Arial', 30)
     background = load_image("./assets/background1.png", False)
-    #background_layer = load_image("./assets/background2.png", True)
-    canvas.blit(background, (0,0))
+    background_layer = load_image("./assets/background2.png", True)
 
-    #spawn animals outside of this loop, so they can do something in here instead
-    #attach to the holy journal
-
-    for animal in journal.active_flock:
-        animal.move()
-        canvas.blit(animal.image, (animal.rect.x, animal.rect.y))
-        if cursor.click(events) and collision(cursor, animal.rect):
-            gamestate = "ZOOM"
-            journal.zoom_cords = []
-            journal.zoom_cords.append((animal.rect.x-100))
-            journal.zoom_cords.append((animal.rect.y-100))
-            journal.checklist[animal.name] = True
-            journal.active_bird = animal.name
-
-            ##online use only, comment out if local
-                #Saves progress to the browser immediately
-            #js.window.localStorage.setItem("my_personal_bird_dict", json.dumps(journal.checklist))
-            ########
-
-    if journal.open == False: #cant move if journal open
-        cursor.move()
-    cursor.draw(canvas)
-    return canvas    
-
-def zoom_zone(journal : Cursor, events):
-    global gamestate
-    global AVIARY
-    zoom_power = 2
-    scaled_w = MAX_WINDOW[0]*zoom_power
-    scaled_h = MAX_WINDOW[1]*zoom_power
-    target_x = journal.zoom_cords[0]*zoom_power
-    target_y = journal.zoom_cords[1]*zoom_power 
-    draw_x = MAX_WINDOW[0]/2 - target_x
-    draw_y = MAX_WINDOW[1]/2 - target_y
-    if draw_x > 0: 
-        draw_x = 0
-        journal.zoom_cords[0]
-    if draw_x < MAX_WINDOW[0] - scaled_w: 
-        draw_x = MAX_WINDOW[0] - scaled_w
-        journal.zoom_cords[0]
-    if draw_y > 0:
-        draw_y = 0
-    if draw_y < MAX_WINDOW[1] - scaled_h:
-        draw_y = MAX_WINDOW[1] - scaled_h 
+    img_reload = load_image("./assets/reload.png", True)
+    img_tree = pygame.transform.scale(load_image("./assets/tree.png", True), (260, 470))
+    trees = [Window(img_tree, 65, 244), Window(img_tree, 1020, 380)]
+    img_tree = load_image("./assets/tree.png", True)
+    monster_pool = load_monster(randint(14,34), load_image("./assets/bird.png", True))
     
-    ##need to make background a widget so players can move it zoomed in
-   
-    canvas = pygame.Surface(MAX_WINDOW)
-    temp_drawing = pygame.Surface(MAX_WINDOW)
+    p1 = Crosshair(load_image("./assets/crosshair1.png", True),
+                        rng(MAX_WINDOW[0]), rng(MAX_WINDOW[1]), 10, 4, p1_controls, "Player 1")
+    p2 = Crosshair(load_image("./assets/crosshair.png", True),
+                        rng(MAX_WINDOW[0]), rng(MAX_WINDOW[1]), 10, 4, p2_controls, "Player 2")
+    team = [p1, p2]
 
-    ##create a temp_canvas with all birds then zooms on it
-    active = load_image(AVIARY[journal.active_bird]["image"], True)
-    active = pygame.transform.scale(active, (300, 300))
-    background = load_image("./assets/background1.png", False)
-    temp_drawing.blit(background, (0,0))
-    temp_drawing.blit(active, (journal.zoom_cords[0], journal.zoom_cords[1] -150))
+    while True:
+        time_var += 1
+        text_box = my_font.render(f"{p1.name, p1.score} Vs. {p2.name, p2.score}", True, (255, 219, 88))
+        canvas.blit(background, (0,0))
+        canvas.blit(text_box, (50,0)) ##need css style tips
+        bus_monster(canvas, monster_pool)
+        canvas.blit(background_layer, (0,0))
+
+        if p1.score >= 1000 or p2.score >= 1000:
+            break
+
+        events = pygame.event.get()
+        bus_player(canvas, team)
+        ##keeping collision seperate from player bus for now
+        for p in team:
+            if p.special > 0:
+                p.special -= 1
+                canvas.blit(img_tree, (p.rect.x, (p.rect.y)-100))
+            if p.reloadmag == True:
+                p.reloadspeed -= 1
+                canvas.blit(img_reload, ((p.rect.x-100), (p.rect.y-100)))
+                if p.reloadspeed == 0:
+                    p.ammo = p.magsize ##need to make a gun class that fills
+                    p.reloadspeed = 120 ##p.mag p.reload etc etc
+                    p.reloadmag = False
+                continue #if reloading skip everything in _p for loop
+
+            if p.ammo == 0:
+                p.reloadmag = True
+            elif p.fire(events) == True:
+                p.ammo -= 1
+                gun_sfx.play()
+                if collision_bus(canvas, p, trees, False) == 0:
+                    p.score += collision_bus(canvas, p, monster_pool, True)
+                else:
+                    if rng(2) == 0:
+                        p.special = 24
+                    else: 
+                        p.score += collision_bus(canvas, p, monster_pool, True)
+        
+        ###options
+        for event in events:
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.VIDEORESIZE:
+                window_w, window_h = event.w, event.h
+                root = pygame.display.set_mode((window_w, window_h), pygame.RESIZABLE)
+        ###more optimal to keep here, only update root if window changes
+        
+        resolution = pygame.transform.scale(canvas, (window_w, window_h))
+        root.blit(resolution, (0,0))
+        pygame.display.flip()
+        clock.tick(60)
+
+    time_var = round(time_var/60)
+    text_box = my_font.render(f"{p1.name, p1.score} Vs. {p2.name, p2.score} Time: {round(time_var)} seconds", True, (255, 219, 88))
+    root.blit(text_box, ((MAX_WINDOW[0]/2), 500))
+    highscore_did_i_break_it(time_var, p1.name) #needs to be player input 
     
-    zoom_background = pygame.transform.scale(temp_drawing, (scaled_w, scaled_h))
-    canvas.blit(zoom_background, (draw_x, draw_y))    
-    canvas.blit(load_image("./assets/zoom_overlay.png", True), (0,0))
+    main_menu(root, text_box)
 
-    if journal.click(events) == True:
-        gamestate = "OVERWORLD"
-        journal.start_start_overworld(rng(5)+1)
-        
-        
-
-    return canvas
-
-
-### exe
-asyncio.run(main())
+###### exe
+main()
