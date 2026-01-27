@@ -1,0 +1,17 @@
+mallard,0,./assets/birds/duck.png,wetlands,C,18,classic quack
+eagle,1,./assets/birds/eagle.png,ocean,R,84,45 mph topspeed
+woodpecker,0,./assets/birds/woodpecker.png,forest,R,9,found globally
+canary,0,./assets/birds/canary.png,grasslands,R,6,beautiful songs
+barnswallow,0,./assets/birds/barnswallow.png,grasslands,U,10,metalic blue
+pine grosbeak,0,./assets/birds/pinegrosbeak.png,forest,C,9,loves crabapples
+mockingbird,0,./assets/birds/mockingbird.png,grasslands,C,14,territorial
+swallow,0,./assets/birds/swallow.png,grasslands,C,12,builds mud nests
+tufted titmouse,0,./assets/birds/tuftedtitmouse.png,forest,c,5,uses abandoned nests
+sparrow,0,./assets/birds/housesparrow.png,forest,c,10,there is no jack sparrow
+house finch,0,./assets/birds/housefinch.png,grasslands,c,6,rosey-red rumps
+blue tree swallow,0,./assets/birds/bluetreeswallow.png,grasslands,R,11,nests cliffside
+black-cap chickadee,0,./assets/birds/blackcapchickadee.png,forest,u,7,non-migratory birds
+glaucous gull,0,./assets/birds/glaucousgull.png,ocean,u,27,one of 60 gull breeds
+herring gull,0,./assets/birds/herringgull.png,ocean,c,32,most common gull
+trumpeter swan,0,./assets/birds/swan.png,wetlands,r,65,30 pounds of bird
+sandhill crane,0,./assets/birds/crane.png,wetlands,U,42,migrate 4000 mi

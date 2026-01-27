@@ -28,7 +28,7 @@ async def main():
     #pygame.mixer.music.play(-1)
 
     AVIARY = read_csv("./assets/aviary.csv")
-    journal_icon = load_image("./assets/journal_icon.png", True)
+    journal_icon = load_image("./sprites/journal_icon.png", True)
     player_journal = Cursor(load_image("./assets/journal.png", True), DEFAULT_CONTROLS, 2, "bookie")
     player_journal.page_image.append(load_image("./assets/ctrl.png", False))
     start_journal_images(player_journal)
